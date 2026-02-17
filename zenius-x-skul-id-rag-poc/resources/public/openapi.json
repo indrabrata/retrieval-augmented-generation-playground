@@ -1,0 +1,393 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Zenius x Skul.id RAG API",
+    "version": "1.0.0",
+    "description": "RAG (Retrieval-Augmented Generation) proof of concept API for learning playlist recommendations. This API provides a chatbot that answers questions and recommends relevant learning playlists using vector search over MongoDB Atlas."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8890",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Chat",
+      "description": "RAG-powered chat and playlist recommendation"
+    },
+    {
+      "name": "Embeddings",
+      "description": "Embedding generation pipeline management"
+    },
+    {
+      "name": "System",
+      "description": "Health checks and system statistics"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "healthCheck",
+        "summary": "Health check",
+        "description": "Returns the health status of the service.",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                },
+                "example": {
+                  "status": "ok",
+                  "service": "rag-poc"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat": {
+      "post": {
+        "operationId": "chat",
+        "summary": "Ask a question and get playlist recommendations",
+        "description": "Send a question to the RAG chatbot. The system will:\n1. Generate an embedding of your question\n2. Search for semantically similar learning playlists via MongoDB Atlas Vector Search\n3. Use the matched playlists as context for the LLM\n4. Return an answer with recommended playlists\n\n**Note:** You must run the embedding generation pipeline (`POST /api/embeddings/generate`) at least once before using this endpoint.",
+        "tags": ["Chat"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              },
+              "examples": {
+                "indonesian": {
+                  "summary": "Question in Bahasa Indonesia",
+                  "value": {
+                    "question": "Bagaimana cara menyelesaikan persamaan linear?",
+                    "top_k": 5
+                  }
+                },
+                "english": {
+                  "summary": "Question in English",
+                  "value": {
+                    "question": "How to solve linear equations?",
+                    "top_k": 3
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response with answer and source playlists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponse"
+                },
+                "example": {
+                  "answer": "Untuk menyelesaikan persamaan linear, kamu perlu mengisolasi variabel...\n\nBerikut playlist yang relevan:\n1. **Persamaan Linear** (lp17073) - Playlist ini membahas dasar-dasar persamaan linear.",
+                  "sources": [
+                    {
+                      "name": "Persamaan Linear Satu Variabel",
+                      "short_id": "lp17073",
+                      "container_id": "6fa102b631fb11efafdbf6573a9cc0b5",
+                      "score": 0.892
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - question is missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "question is required"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/embeddings/generate": {
+      "post": {
+        "operationId": "generateEmbeddings",
+        "summary": "Generate embeddings for all playlists",
+        "description": "Triggers the embedding generation pipeline. This will:\n1. Fetch all containers (playlists) from the `containers` collection\n2. Enrich each playlist's text by pulling in related question texts and video titles\n3. Generate embeddings via the OpenAI Embeddings API\n4. Store the results in the `container-vectors` collection\n\n**Warning:** This operation may take a while depending on the number of playlists. Each batch of playlists requires an API call to OpenAI.\n\nBy default, this clears all existing vectors before regenerating. Set `clear` to `false` to append instead.",
+        "tags": ["Embeddings"],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmbeddingRequest"
+              },
+              "examples": {
+                "default": {
+                  "summary": "Default - clear and regenerate all",
+                  "value": {
+                    "batch_size": 20,
+                    "clear": true
+                  }
+                },
+                "append": {
+                  "summary": "Append without clearing existing vectors",
+                  "value": {
+                    "batch_size": 10,
+                    "clear": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Embedding generation completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmbeddingResponse"
+                },
+                "example": {
+                  "status": "completed",
+                  "total_vectors": 150
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "operationId": "getStats",
+        "summary": "Get collection statistics",
+        "description": "Returns document counts for all relevant MongoDB collections. Useful for verifying that data and embeddings are properly loaded.",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Collection statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                },
+                "example": {
+                  "containers": 150,
+                  "container_vectors": 150,
+                  "question_instances": 4500,
+                  "video_instances": 450
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ChatRequest": {
+        "type": "object",
+        "required": ["question"],
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "The user's question. Can be in Bahasa Indonesia or English.",
+            "example": "Bagaimana cara menyelesaikan persamaan linear?"
+          },
+          "top_k": {
+            "type": "integer",
+            "description": "Number of relevant playlists to retrieve for context.",
+            "default": 5,
+            "minimum": 1,
+            "maximum": 20
+          }
+        }
+      },
+      "ChatResponse": {
+        "type": "object",
+        "properties": {
+          "answer": {
+            "type": "string",
+            "description": "The LLM-generated answer with playlist recommendations."
+          },
+          "sources": {
+            "type": "array",
+            "description": "The playlists retrieved by vector search that were used as context.",
+            "items": {
+              "$ref": "#/components/schemas/PlaylistSource"
+            }
+          },
+          "usage": {
+            "$ref": "#/components/schemas/TokenUsage"
+          }
+        }
+      },
+      "TokenUsage": {
+        "type": "object",
+        "description": "Token usage breakdown for the entire RAG query (embedding + chat completion).",
+        "properties": {
+          "embedding_tokens": {
+            "type": "integer",
+            "description": "Tokens used to embed the user's question."
+          },
+          "prompt_tokens": {
+            "type": "integer",
+            "description": "Tokens used in the chat completion prompt (system + context + question)."
+          },
+          "completion_tokens": {
+            "type": "integer",
+            "description": "Tokens generated by the chat completion response."
+          },
+          "total_tokens": {
+            "type": "integer",
+            "description": "Total tokens used across all OpenAI API calls for this query."
+          }
+        }
+      },
+      "PlaylistSource": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Playlist name."
+          },
+          "short_id": {
+            "type": "string",
+            "description": "Short identifier for the playlist (e.g., lp17073)."
+          },
+          "container_id": {
+            "type": "string",
+            "description": "MongoDB document ID of the container."
+          },
+          "score": {
+            "type": "number",
+            "format": "float",
+            "description": "Vector search similarity score (0-1, higher is more relevant)."
+          }
+        }
+      },
+      "EmbeddingRequest": {
+        "type": "object",
+        "properties": {
+          "batch_size": {
+            "type": "integer",
+            "description": "Number of playlists to process per batch when calling the OpenAI Embeddings API.",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 100
+          },
+          "clear": {
+            "type": "boolean",
+            "description": "If true, delete all existing vectors before regenerating. If false, append new vectors.",
+            "default": true
+          }
+        }
+      },
+      "EmbeddingResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Pipeline execution status.",
+            "enum": ["completed"]
+          },
+          "total_vectors": {
+            "type": "integer",
+            "description": "Total number of vectors in the container-vectors collection after pipeline execution."
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "service": {
+            "type": "string",
+            "example": "rag-poc"
+          }
+        }
+      },
+      "StatsResponse": {
+        "type": "object",
+        "properties": {
+          "containers": {
+            "type": "integer",
+            "description": "Number of playlist containers."
+          },
+          "container_vectors": {
+            "type": "integer",
+            "description": "Number of generated embedding vectors."
+          },
+          "question_instances": {
+            "type": "integer",
+            "description": "Number of question instances."
+          },
+          "video_instances": {
+            "type": "integer",
+            "description": "Number of video instances."
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message."
+          },
+          "message": {
+            "type": "string",
+            "description": "Detailed error message (only in 500 responses)."
+          }
+        }
+      }
+    }
+  }
+}

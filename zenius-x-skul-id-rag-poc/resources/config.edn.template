@@ -1,0 +1,13 @@
+;; Configuration file for the RAG POC
+;; Override these values with environment variables:
+;;   MONGODB_URI        - MongoDB Atlas connection string
+;;   MONGODB_DATABASE   - Database name
+;;   OPENAI_API_KEY     - OpenAI API key
+;;   SERVER_PORT        - HTTP server port (default 8890)
+
+{:mongodb {:uri ""
+           :database ""}
+ :openai  {:api-key ""
+           :embedding-model "text-embedding-3-small"
+           :chat-model "gpt-4o-mini"}
+ :server  {:port 8890}}
