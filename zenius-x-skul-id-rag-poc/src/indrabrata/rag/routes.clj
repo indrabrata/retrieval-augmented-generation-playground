@@ -116,7 +116,7 @@
   [components-map]
   (let [inject (components-interceptor components-map)]
     #{["/health"                  :get  health-handler       :route-name :health]
-      ["/api/chat"                :post [inject chat-handler]  :route-name :chat]
+      ["/api/rag/chat"                :post [inject chat-handler]  :route-name :chat]
       ["/api/embeddings/generate" :post [inject embed-handler] :route-name :embed]
       ["/api/stats"               :get  [inject stats-handler] :route-name :stats]
       ["/openapi.json"            :get  openapi-json-handler   :route-name :openapi-json]}))
