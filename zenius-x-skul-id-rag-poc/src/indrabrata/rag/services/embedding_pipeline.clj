@@ -2,8 +2,10 @@
   "Pipeline to generate enriched text from containers and their related
    question/video instances, generate embeddings, and store them in
    the container-vectors collection."
-  (:require [indrabrata.rag.components.mongodb :as mongo]
-            [indrabrata.rag.services.openai :as openai]))
+  (:require
+   [clojure.string :as str]
+   [indrabrata.rag.components.mongodb :as mongo]
+   [indrabrata.rag.services.openai :as openai]))
 
 ;; ---- Text Enrichment ----
 
@@ -12,9 +14,9 @@
   [s]
   (when s
     (-> s
-        (clojure.string/replace #"<[^>]+>" " ")
-        (clojure.string/replace #"&nbsp;" " ")
-        (clojure.string/replace #"\s+" " ")
+        (str/replace #"<[^>]+>" " ")
+        (str/replace #"&nbsp;" " ")
+        (str/replace #"\s+" " ")
         clojure.string/trim)))
 
 (defn- extract-latex

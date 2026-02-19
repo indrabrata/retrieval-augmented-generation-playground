@@ -1,6 +1,6 @@
 # zenius-x-skul-id-rag-poc
 
-Proof of concept for creating rag for chat bot zenius x skul id using clojure, open ai, and mongo db
+Proof of concept for creating rag for chat bot zenius x skul id using clojure, open ai, and mongo db.
 
 ## Indexing in Mongo DB
 

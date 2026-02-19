@@ -1,10 +1,13 @@
 (ns indrabrata.rag.routes
   "Pedestal routes and handlers for the RAG API."
-  (:require [cheshire.core :as json]
-            [clojure.java.io :as io]
-            [indrabrata.rag.services.rag :as rag]
-            [indrabrata.rag.services.embedding-pipeline :as pipeline]
-            [indrabrata.rag.components.mongodb :as mongo]))
+  (:require
+   [clojure.string :as str]
+   [cheshire.core :as json]
+   [clojure.java.io :as io]
+   [indrabrata.rag.services.rag :as rag]
+   [indrabrata.rag.services.naive-rag :as naive-rag]
+   [indrabrata.rag.services.embedding-pipeline :as pipeline]
+   [indrabrata.rag.components.mongodb :as mongo]))
 
 ;; ---- Response Helpers ----
 
@@ -23,14 +26,14 @@
   (json-response 200 {:status "ok" :service "rag-poc"}))
 
 (defn chat-handler
-  "POST /api/chat - Main RAG chat endpoint.
+  "POST /api/rag/chat - Main RAG chat endpoint.
    Body: {\"question\": \"...\", \"top_k\": 5}
    Returns: {\"answer\": \"...\", \"sources\": [...]}"
-  [{:keys [components json-params] :as request}]
+  [{:keys [components json-params]}]
   (let [{:keys [mongodb openai-config]} components
         question (:question json-params)
         top-k    (or (:top_k json-params) 5)]
-    (if (clojure.string/blank? question)
+    (if (str/blank? question)
       (json-response 400 {:error "question is required"})
       (try
         (let [result (rag/query mongodb openai-config question :top-k top-k)]
@@ -40,11 +43,31 @@
           (json-response 500 {:error "Internal server error"
                               :message (.getMessage e)}))))))
 
+(defn naive-chat-handler
+  "POST /api/naive-rag/chat - Naive RAG chat endpoint.
+   LLM answers the question and extracts keywords; keywords are used
+   to search MongoDB containers by name similarity (no embeddings).
+   Body: {\"question\": \"...\", \"top_k\": 5}
+   Returns: {\"answer\": \"...\", \"keywords\": [...], \"sources\": [...]}"
+  [{:keys [components json-params]}]
+  (let [{:keys [mongodb openai-config]} components
+        question (:question json-params)
+        top-k    (or (:top_k json-params) 5)]
+    (if (str/blank? question)
+      (json-response 400 {:error "question is required"})
+      (try
+        (let [result (naive-rag/query mongodb openai-config question :top-k top-k)]
+          (json-response 200 result))
+        (catch Exception e
+          (println (str "Error in naive chat handler: " (.getMessage e)))
+          (json-response 500 {:error "Internal server error"
+                              :message (.getMessage e)}))))))
+
 (defn embed-handler
   "POST /api/embeddings/generate - Trigger embedding generation pipeline.
    Body: {\"batch_size\": 20, \"clear\": true}
    Returns: {\"total_vectors\": N}"
-  [{:keys [components json-params] :as request}]
+  [{:keys [components json-params]}]
   (let [{:keys [mongodb openai-config]} components
         batch-size (or (:batch_size json-params) 5)
         clear?     (if (contains? json-params :clear) (:clear json-params) true)]
@@ -73,7 +96,7 @@
 
 (defn stats-handler
   "GET /api/stats - Get collection statistics."
-  [{:keys [components] :as request}]
+  [{:keys [components]}]
   (let [{:keys [mongodb]} components]
     (try
       (let [containers (mongo/count-documents mongodb "containers")
@@ -119,4 +142,5 @@
       ["/api/rag/chat"                :post [inject chat-handler]  :route-name :chat]
       ["/api/embeddings/generate" :post [inject embed-handler] :route-name :embed]
       ["/api/stats"               :get  [inject stats-handler] :route-name :stats]
-      ["/openapi.json"            :get  openapi-json-handler   :route-name :openapi-json]}))
+      ["/openapi.json"            :get  openapi-json-handler   :route-name :openapi-json]
+      ["/api/naive-rag/chat" :post [inject naive-chat-handler] :route-name :naive-rag-chat]}))

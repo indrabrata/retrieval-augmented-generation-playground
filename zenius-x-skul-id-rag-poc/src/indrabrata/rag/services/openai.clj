@@ -57,3 +57,17 @@
                            :messages messages})]
     {:content (-> resp :choices first :message :content)
      :usage   (:usage resp)}))
+
+(defn chat-completion-json
+  "Send a chat completion request with JSON response format.
+   The LLM is instructed to return valid JSON. messages is a seq of {:role \"...\" :content \"...\"}.
+   Returns {:content <parsed-json> :raw-content \"...\" :usage {...}}."
+  [api-key model messages]
+  (let [resp (api-request api-key :post "/chat/completions"
+                          {:model           model
+                           :messages        messages
+                           :response_format {:type "json_object"}})
+        raw  (-> resp :choices first :message :content)]
+    {:content     (json/parse-string raw true)
+     :raw-content raw
+     :usage       (:usage resp)}))
