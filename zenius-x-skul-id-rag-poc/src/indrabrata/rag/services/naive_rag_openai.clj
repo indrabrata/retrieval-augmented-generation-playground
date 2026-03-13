@@ -1,35 +1,29 @@
-(ns indrabrata.rag.services.naive-rag
+(ns indrabrata.rag.services.naive-rag-openai
   "Naive RAG service.
    Flow:
    1. Send user question to LLM → get answer + extracted keywords (JSON)
    2. Use keywords to text-search MongoDB containers (name field)
    3. Return LLM answer + top-k matching containers as sources."
-  (:require [clojure.string :as str]
-            [indrabrata.rag.components.mongodb :as mongo]
-            [indrabrata.rag.services.openai :as openai])
-  (:import [com.mongodb.client MongoCollection]
-           [org.bson Document]
-           [java.util.regex Pattern]))
+  (:require
+   [clojure.string :as str]
+   [indrabrata.rag.components.mongodb :as mongo]
+   [indrabrata.rag.services.openai :as openai])
+  (:import
+   [com.mongodb.client MongoCollection]
+   [java.util.regex Pattern]
+   [org.bson Document]))
 
 ;; ---- Step 1: LLM — answer + keyword extraction ----
 
 (def ^:private keyword-extraction-system-prompt
-  "You are a helpful learning assistant for an Indonesian educational platform.
+  "You are a friendly learning assistant for an Indonesian educational platform.
+Answer the user's question warmly, then extract search keywords to find relevant playlists.
 
-Your task:
-1. Answer the user's question clearly and accurately.
-2. Extract the most important search keywords from the question that would help find relevant learning playlists. Focus on subject names, topic names, and educational concepts.
+Respond ONLY as valid JSON:
+{\"answer\": \"<friendly answer>\", \"keywords\": [\"kw1\", \"kw2\"]}
 
-Respond ONLY with valid JSON in this exact shape:
-{
-  \"answer\": \"<your answer here>\",
-  \"keywords\": [\"keyword1\", \"keyword2\", \"keyword3\"]
-}
-
-Rules:
-- \"answer\" should be a helpful, concise response in the same language the user used (Bahasa Indonesia or English).
-- \"keywords\" should be 2–6 short, specific terms (single words or short phrases) relevant to finding educational playlists.
-- Do not include filler words like 'how', 'what', 'is', etc. in keywords.")
+- answer: concise, in the user's language (Indonesian or English)
+- keywords: 2–6 subject/topic terms; no filler words (how, what, is, etc.)")
 
 (defn- extract-answer-and-keywords
   "Call the LLM to get an answer and keywords from the user question.

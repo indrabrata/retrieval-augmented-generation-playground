@@ -1,7 +1,8 @@
 (ns indrabrata.rag.config
   "Configuration loading from config.edn with environment variable overrides."
-  (:require [clojure.edn :as edn]
-            [clojure.java.io :as io]))
+  (:require
+   [clojure.edn :as edn]
+   [clojure.java.io :as io]))
 
 (defn load-config
   "Load configuration from resources/config.edn and override with environment variables."
@@ -19,6 +20,12 @@
                                                        (get-in base-config [:openai :embedding-model]))
                                  :chat-model       (or (System/getenv "OPENAI_CHAT_MODEL")
                                                        (get-in base-config [:openai :chat-model]))}
+                       :gemini  {:api-key         (or (System/getenv "GEMINI_API_KEY")
+                                                      (get-in base-config [:gemini :api-key]))
+                                 :embedding-model  (or (System/getenv "GEMINI_EMBEDDING_MODEL")
+                                                       (get-in base-config [:gemini :embedding-model]))
+                                 :chat-model       (or (System/getenv "GEMINI_CHAT_MODEL")
+                                                       (get-in base-config [:gemini :chat-model]))}
                        :server  {:port (Integer/parseInt
                                         (or (System/getenv "SERVER_PORT")
                                             (str (get-in base-config [:server :port]))))}}]

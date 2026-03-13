@@ -5,13 +5,14 @@
             [io.pedestal.http.http-kit :as hk]
             [indrabrata.rag.routes :as routes]))
 
-(defrecord Pedestal [port mongodb openai-config connector]
+(defrecord Pedestal [port mongodb openai-config gemini-config connector]
   component/Lifecycle
 
   (start [this]
     (println (str "Starting HTTP server on port " port "..."))
     (let [components-map {:mongodb       mongodb
-                          :openai-config openai-config}
+                          :openai-config openai-config
+                          :gemini-config gemini-config}
           connector      (-> (conn/default-connector-map port)
                              (conn/optionally-with-dev-mode-interceptors)
                              (conn/with-default-interceptors)

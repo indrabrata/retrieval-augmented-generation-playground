@@ -13,9 +13,16 @@
   (start [this] this)
   (stop [this] this))
 
-(defn new-openai-config
-  [config-map]
+(defn new-openai-config [config-map]
   (map->OpenAIConfig config-map))
+
+(defrecord GeminiConfig [api-key embedding-model chat-model]
+  component/Lifecycle
+  (start [this] this)
+  (stop [this] this))
+
+(defn new-gemini-config [config-map]
+  (map->GeminiConfig config-map))
 
 (defn new-system
   "Create a new system map from configuration."
@@ -31,7 +38,10 @@
      :openai-config
      (new-openai-config (get config :openai))
 
+     :gemini-config
+     (new-gemini-config (get config :gemini))
+
      :pedestal
      (component/using
        (pedestal/new-pedestal (get-in config [:server :port]))
-       [:mongodb :openai-config]))))
+       [:mongodb :openai-config :gemini-config]))))

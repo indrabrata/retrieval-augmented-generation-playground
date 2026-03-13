@@ -1,12 +1,18 @@
 (ns indrabrata.rag.components.mongodb
   "MongoDB component using the official Java driver.
    Manages connection lifecycle and provides database access."
-  (:require [com.stuartsierra.component :as component])
-  (:import [com.mongodb.client MongoClients MongoClient MongoDatabase MongoCollection]
-           [com.mongodb ConnectionString MongoClientSettings]
-           [org.bson Document]
-           [org.bson.conversions Bson]
-           [java.util ArrayList List]))
+  (:require
+   [com.stuartsierra.component :as component])
+  (:import
+   [com.mongodb ConnectionString MongoClientSettings]
+   [com.mongodb.client
+    MongoClient
+    MongoClients
+    MongoCollection
+    MongoDatabase]
+   [java.util List]
+   [org.bson Document]
+   [org.bson.conversions Bson]))
 
 ;; ---- Helper functions for converting between Clojure maps and BSON Documents ----
 

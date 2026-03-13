@@ -1,13 +1,19 @@
 ;; Configuration file for the RAG POC
 ;; Override these values with environment variables:
-;;   MONGODB_URI        - MongoDB Atlas connection string
-;;   MONGODB_DATABASE   - Database name
-;;   OPENAI_API_KEY     - OpenAI API key
-;;   SERVER_PORT        - HTTP server port (default 8890)
+;;   MONGODB_URI           - MongoDB Atlas connection string
+;;   MONGODB_DATABASE      - Database name
+;;   OPENAI_API_KEY        - OpenAI API key
+;;   GEMINI_API_KEY        - Google Gemini API key
+;;   GEMINI_EMBEDDING_MODEL - Gemini embedding model (default: text-embedding-004)
+;;   GEMINI_CHAT_MODEL     - Gemini chat model (default: gemini-2.0-flash)
+;;   SERVER_PORT           - HTTP server port (default 8890)
 
-{:mongodb {:uri ""
-           :database ""}
+{:mongodb {:uri "mongodb+srv://zeniuskuncie_db_user:2ejmOhN0vucMetHp@zenius-x-kuncie-staging.2rtkubo.mongodb.net/skul-belajar?authSource=admin&retryWrites=true&readPreference=secondary&w=majority&appname=skul-belajar-staging&ssl=true"
+           :database "skul-belajar"}
  :openai  {:api-key ""
-           :embedding-model "text-embedding-3-small"
-           :chat-model "gpt-4o-mini"}
+           :embedding-model "text-embedding-3-small" ;; 1536 dims
+           :chat-model "gpt-5-mini"}
+ :gemini  {:api-key         ""
+           :embedding-model "gemini-embedding-001" ;; 3072 dims
+           :chat-model      "gemini-3.1-flash-lite-preview"}
  :server  {:port 8890}}

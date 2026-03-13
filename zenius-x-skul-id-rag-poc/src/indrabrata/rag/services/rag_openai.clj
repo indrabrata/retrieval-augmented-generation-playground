@@ -1,11 +1,13 @@
-(ns indrabrata.rag.services.rag
+(ns indrabrata.rag.services.rag-openai
   "RAG (Retrieval-Augmented Generation) service.
    Handles: query embedding → vector search → context building → LLM response."
-  (:require [indrabrata.rag.components.mongodb :as mongo]
-            [indrabrata.rag.services.openai :as openai])
-  (:import [com.mongodb.client MongoCollection]
-           [org.bson Document]
-           [java.util ArrayList]))
+  (:require
+   [clojure.string :as str]
+   [indrabrata.rag.components.mongodb :as mongo]
+   [indrabrata.rag.services.openai :as openai])
+  (:import
+   [java.util ArrayList]
+   [org.bson Document]))
 
 ;; ---- Vector Search ----
 
@@ -69,22 +71,15 @@
                  (format "%.3f" (double s)))
                ")\n"
                "   " (:text result))))
-       (clojure.string/join "\n\n")))
+       (str/join "\n\n")))
 
 (def ^:private system-prompt
-  "You are a helpful learning assistant for an Indonesian educational platform.
-Your job is to:
-1. Answer the user's question clearly and accurately
-2. Recommend relevant learning playlists based on the context provided
+  "You are a friendly learning guide for an Indonesian educational platform.
 
-When recommending playlists:
-- Only recommend playlists from the provided context
-- Explain briefly why each playlist is relevant
-- Include the playlist short ID (e.g., lp17073) for reference
-- If the context doesn't contain relevant playlists, say so honestly
-
-Respond in the same language the user uses (Bahasa Indonesia or English).
-Keep your response concise and helpful.")
+Answer the user's question warmly and concisely, then recommend relevant playlists from the context.
+For each playlist: include its short ID (e.g. lp17073) and one sentence on why it fits.
+If no playlists match, say so kindly.
+Reply in the user's language (Bahasa Indonesia or English).")
 
 ;; ---- Main RAG Query ----
 
@@ -119,10 +114,8 @@ Keep your response concise and helpful.")
         messages        [{:role    "system"
                           :content system-prompt}
                          {:role    "user"
-                          :content (str "Context - Available learning playlists:\n\n"
-                                        context-str
-                                        "\n\n---\n\n"
-                                        "User question: " user-question)}]
+                          :content (str "Playlists:\n" context-str
+                                        "\n\nQuestion: " user-question)}]
         chat-result     (openai/chat-completion
                          (:api-key openai-config)
                          (:chat-model openai-config)
@@ -141,3 +134,26 @@ Keep your response concise and helpful.")
                :completion_tokens (:completion_tokens chat-usage)
                :total_tokens      (+ (or (:total_tokens embed-usage) 0)
                                      (or (:total_tokens chat-usage) 0))}}))
+
+;; ---- Conversation (multi-turn, no RAG) ----
+
+(def ^:private conversation-system-prompt
+  "You are a friendly and knowledgeable assistant for an Indonesian educational platform.
+Answer the user's questions warmly and helpfully.
+Reply in the user's language (Bahasa Indonesia or English).")
+
+(defn conversation-query
+  "Multi-turn chat without vector search.
+   messages is a seq of {:role \"user\"|\"assistant\" :content \"...\"}.
+   window-size trims history to the last N messages (default 10).
+   Returns {:answer \"...\" :usage {...}}."
+  [openai-config messages & {:keys [window-size] :or {window-size 10}}]
+  (let [windowed      (vec (take-last window-size messages))
+        _             (println (str "OpenAI conversation, " (count windowed) "/" (count messages) " messages (window=" window-size ")"))
+        full-messages (concat [{:role "system" :content conversation-system-prompt}] windowed)
+        result        (openai/chat-completion
+                       (:api-key openai-config)
+                       (:chat-model openai-config)
+                       (vec full-messages))]
+    {:answer (:content result)
+     :usage  (:usage result)}))

@@ -1,4 +1,4 @@
-(ns indrabrata.rag.services.embedding-pipeline
+(ns indrabrata.rag.services.embedding-pipeline-openai
   "Pipeline to generate enriched text from containers and their related
    question/video instances, generate embeddings, and store them in
    the container-vectors collection."
@@ -132,7 +132,7 @@
      :batch-size - number of containers to process at once (default 20)
      :clear?     - whether to clear existing vectors first (default true)"
   [mongodb openai-config & {:keys [batch-size clear?]
-                            :or   {batch-size 20 clear? true}}]
+                            :or   {batch-size 5 clear? true}}]
   (println "Starting embedding pipeline...")
   (let [containers (mongo/find-all mongodb "containers")]
     (println (str "Found " (count containers) " containers to process."))
@@ -148,7 +148,10 @@
                       " (" (count batch) " containers)..."))
         (let [vector-docs (process-batch mongodb openai-config batch)]
           (mongo/insert-many! mongodb "container-vectors" vector-docs)
-          (println (str "  Inserted " (count vector-docs) " vector documents."))))
+          (println (str "  Inserted " (count vector-docs) " vector documents.")))
+        (when (< (inc idx) total)
+          (println "  Waiting 12s to respect OpenAI rate limit...")
+          (Thread/sleep 12000)))
 
       (let [total-vectors (mongo/count-documents mongodb "container-vectors")]
         (println (str "Pipeline complete. Total vectors stored: " total-vectors))
