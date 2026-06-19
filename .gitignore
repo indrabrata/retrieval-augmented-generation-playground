@@ -30,3 +30,5 @@
 /target
 
 config.edn
+.clj-kondo/
+.lsp
